@@ -13,7 +13,7 @@ if [ "$#" -ne 5 ]; then
     exit 1
 fi
 
-# Save machine statistics in MB and current machine hostname to variables
+# Save machine info and current machine hostname to variables
 hostname=$(hostname -f)
 lscpu_out=$(lscpu)
 cpu_info=$(cat /proc/cpuinfo)
@@ -34,9 +34,6 @@ VALUES ('$hostname', $cpu_number, '$cpu_architecture', '$cpu_model', $cpu_mhz, $
 
 # Set up environment variable for PSQL cmd
 export PGPASSWORD=$psql_password
-
-# TESTING to view "insert_stmt"
-echo "$insert_stmt"
 
 # Insert data into database
 psql -h $psql_host -p $psql_port -d $db_name -U $psql_user -c "$insert_stmt"
