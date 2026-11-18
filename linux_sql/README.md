@@ -28,6 +28,7 @@ crontab -e
 ## Implementation
 
 ### Architecture
+![architecture](assets/cluster_diagram.drawio.png)
 
 ### Scripts
 - `psql_docker.sh`: creates, starts, or stops the Postgres container. Reports an
