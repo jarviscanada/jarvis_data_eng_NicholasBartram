@@ -1,9 +1,9 @@
 # Linux Cluster Monitoring Agent
 
 ## Introduction
-This project creates a Linux cluster monitoring agent, it's designed using a user story from the perspective of a cluster administration team (LCA). The team needs to log hardware specifications and real-time resource usage of 10 servers running Rocky Linux connected via a switch and communicating using internal IPv4 addresses.
+This project is a Linux cluster monitoring agent. It gives administrators a record of each server's hardware and of how its resources are used over time. An agent runs on every server in the cluster and reports to one central database. It collects two kinds of data: hardware specifications (CPU, memory and cache), recorded once per server, and resource usage (free memory, CPU load and disk space), recorded every minute. That history supports capacity planning and makes overloaded machines easy to spot.
 
-The project uses several technologies to accomplish its goal. Bash is used to create scripts, docker to create a container and volume for a psql instance on the virtual machine, psql to create the database within said volume, and git/GitHub for version control.
+The project uses Bash for the agent scripts, cron to schedule the minute-by-minute collection, PostgreSQL running in a Docker container (with a volume so the data persists), and Git/GitHub for version control.
 
 ## Quick Start
 ```bash
@@ -11,19 +11,28 @@ The project uses several technologies to accomplish its goal. Bash is used to cr
 ./scripts/psql_docker.sh create db_username db_password
 ./scripts/psql_docker.sh start
 
+# Connect to the psql instance (prompts for db_password)
+psql -h localhost -U db_username -W
+
+# Inside psql: create and connect to the host_agent database
+CREATE DATABASE host_agent;
+\c host_agent;
+\q
+
 # Create the tables
-psql -h localhost -U postgres -d host_agent -f sql/ddl.sql
+psql -h localhost -U db_username -d host_agent -f sql/ddl.sql
 
 # Record this host's hardware specs (run once per host)
-./scripts/host_info.sh localhost 5432 host_agent postgres password
+./scripts/host_info.sh localhost 5432 host_agent db_username db_password
 
 # Record usage data (a single run, for testing)
-./scripts/host_usage.sh localhost 5432 host_agent postgres password
+./scripts/host_usage.sh localhost 5432 host_agent db_username db_password
 
 # Schedule usage collection every minute
 crontab -e
-# add: * * * * * bash /absolute/path/scripts/host_usage.sh localhost 5432 host_agent postgres password > /tmp/host_usage.log 2>&1
+# add: * * * * * bash /absolute/path/scripts/host_usage.sh localhost 5432 host_agent db_username db_password > /tmp/host_usage.log
 ```
+Use the same username and password in every command, since they are set when the container is created.
 
 ## Implementation
 
@@ -32,12 +41,27 @@ crontab -e
 
 ### Scripts
 - `psql_docker.sh`: creates, starts, or stops the Postgres container. Reports an
-  error if the container already exists or doesn't exist yet. (usage block)
-- `host_info.sh`: gathers hardware specs from `lscpu`, `/proc/cpuinfo` and `vmstat`
-  and inserts one row per host. (usage block)
+  error if the container already exists or doesn't exist yet.
+  ```bash
+  ./scripts/psql_docker.sh create db_username db_password
+  ./scripts/psql_docker.sh start
+  ./scripts/psql_docker.sh stop
+  ```
+- `host_info.sh`: gathers hardware specs from `lscpu`, `/proc/cpuinfo`, and `vmstat`
+  and inserts one row per host.
+  ```bash
+  ./scripts/host_info.sh localhost 5432 host_agent db_username db_password
+  ```
 - `host_usage.sh`: gathers current usage with `vmstat` and `df`, looks up the
-  host's id by hostname, and inserts a usage row. (usage block)
+  host's id by hostname, and inserts a usage row.
+  ```bash
+  ./scripts/host_usage.sh localhost 5432 host_agent db_username db_password
+  ```
 - crontab: runs `host_usage.sh` every minute.
+  ```bash
+  crontab -e
+  # add: * * * * * bash /absolute/path/scripts/host_usage.sh localhost 5432 host_agent db_username db_password > /tmp/host_usage.log
+  ```
 
 ### Database Modeling
 **host_info**
@@ -70,19 +94,22 @@ crontab -e
 Each script was tested as it was written, then the whole chain was run end to end
 from empty tables.
 
-**psql_docker.sh**
-Ran `create`, `start` and `stop` and confirmed each with `docker ps`. Also checked
+**psql_docker.sh** 
+
+Ran `create`, `start`, and `stop` and confirmed each with `docker ps`. Also checked
 the error paths: `create` on an existing container, `start` before `create`, a wrong
 number of arguments, and an invalid command all printed an error and exited with a
 non-zero status. Then connected with `psql` and created the `host_agent` database.
 
 **ddl.sql**
+
 Ran the file against `host_agent`, then used `\dt` to confirm both tables exist and
 `\d host_info` and `\d host_usage` to confirm the columns, types, primary key, unique
 hostname constraint and foreign key. Re-running the file only produced "already
 exists, skipping" notices, so it is safe to run more than once.
 
 **host_info.sh and host_usage.sh**
+
 Both were run with `bash -x` to trace each command, and the generated INSERT
 statement was printed before it was sent to make sure values and quoting were correct.
 Each command that gathers a value was also run on its own to check that its output
@@ -93,13 +120,14 @@ was a single clean value.
 - `host_usage.sh` inserted a usage row whose `host_id` matched the `host_info` id.
 
 **crontab**
+
 After scheduling `host_usage.sh` every minute, a new row appeared in `host_usage`
 each minute, with the log file empty when runs succeeded.
 
 ## Deployment
-GitHub is used for version control using the GitFlow branching model; feature branches are used to create and modify files before they are merged to the develop branch. The database runs in Docker. `crontab` is used to schedule resource monitoring in the `host_usage.sh` script.
+GitHub is used for version control with the GitFlow branching model; feature branches are used to create and modify files before merging into the develop branch. The database runs in Docker. `crontab` is used to schedule resource monitoring in the `host_usage.sh` script.
 
 ## Improvements
-- Start the container automatically on boot
-  - currently the `psql_docker.sh` script must be run manually on boot, automating this could prove efficient
-- 
+- Start the container automatically on boot.
+- Log failures with a timestamp so a missed minute is easy to spot.
+- Handle hardware updates, since `host_info` is written once and later changes aren't recorded.
