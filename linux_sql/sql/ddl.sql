@@ -1,6 +1,6 @@
 --switch to `host_agent`
 \c host_agent;
---create `host_info` table if not exist
+--create `host_info` table if not exists
 CREATE TABLE IF NOT EXISTS PUBLIC.host_info (
   id SERIAL NOT NULL, 
   hostname VARCHAR NOT NULL, 
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS PUBLIC.host_info (
   CONSTRAINT host_info_pk PRIMARY KEY (id), 
   CONSTRAINT host_info_un UNIQUE (hostname)
 );
---create `host_usage` table if not exist
+--create `host_usage` table if not exists
 CREATE TABLE IF NOT EXISTS PUBLIC.host_usage (
   "timestamp" TIMESTAMP NOT NULL, 
   host_id SERIAL NOT NULL, 

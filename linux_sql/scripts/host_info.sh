@@ -28,7 +28,7 @@ l2_cache=$(echo "$lscpu_out"  | egrep "^L2 cache:" | awk -F: '{print $2}' | awk 
 timestamp=$(date -u +"%Y-%m-%d %H:%M:%S") 
 total_mem=$(echo "$vmstat_mem_out" | head -n 1 | awk '{print $1}')
 
-# PSQL command: Inserts server info data into host_info table
+# PSQL command to insert server info data into host_info table
 insert_stmt="INSERT INTO host_info(hostname, cpu_number, cpu_architecture, cpu_model, cpu_mhz, l2_cache, timestamp, total_mem) 
 VALUES ('$hostname', $cpu_number, '$cpu_architecture', '$cpu_model', $cpu_mhz, $l2_cache, '$timestamp', $total_mem)";
 

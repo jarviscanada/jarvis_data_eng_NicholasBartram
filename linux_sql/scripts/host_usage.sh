@@ -32,7 +32,7 @@ timestamp=$(date -u +"%Y-%m-%d %H:%M:%S")
 # Subquery to find matching id in host_info table
 host_id="(SELECT id FROM host_info WHERE hostname='$hostname')";
 
-# PSQL command: Inserts server usage data into host_usage tables
+# PSQL command to insert server usage data into host_usage tables
 insert_stmt="INSERT INTO host_usage(timestamp, host_id, memory_free, cpu_idle, cpu_kernel, disk_io, disk_available) 
 VALUES('$timestamp', $host_id, $memory_free, $cpu_idle, $cpu_kernel, $disk_io, '${disk_available%M}')";
 
