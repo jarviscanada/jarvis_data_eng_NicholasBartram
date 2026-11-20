@@ -12,7 +12,7 @@ sudo systemctl status docker || systemctl start docker
 docker container inspect jrvs-psql
 container_status=$?
 
-# User switch case to handle create|stop|start options
+# Handle create, start and stop using a care statement
 case $cmd in 
   create)
   
